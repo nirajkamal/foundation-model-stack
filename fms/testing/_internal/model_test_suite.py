@@ -347,14 +347,30 @@ class ModelConsistencyTestSuite(ModelFixtureMixin, SignatureFixtureMixin):
             # Create signature from the generated tokens
             if captured_logits:
                 # Use the captured logits for the last two generated tokens
-                new_tokens = captured_logits[-1][:, -2:]  # Get the logits for the last two tokens
+                # new_tokens = captured_logits[-1][:, -2:]  # Get the logits for the last two tokens
+
+                # Concatenate captured logits from prefill and decode
+                all_logits = torch.cat(captured_logits, dim=1) #along the sequence dimension
+
+                s = all_logits.max(2)[0] - all_logits.min(2)[0]
+                signature = (s.squeeze() - s.min()).tolist()
+
+                print(f"Generation successful: signature length = {len(signature)}")
+                return signature
             else:
                 # If no logits were captured, fallback to the last tokens in generated
-                new_tokens = generated[-1][:, -2:]
+                # new_tokens = generated[-1][:, -2:]
+
+                new_tokens = generated[:, -2:]  # Get the last two generated tokens
+                signature = [(new_tokens.float().squeeze() - new_tokens.min().float()).tolist()]
+
+                print(f"Generation fallback: no logits captured, using last tokens = {new_tokens.tolist()}")
+                return signature
+
             
-            # Create a simple signature from the new token
-            print(f"Generation successful: generated token sum = {new_tokens.sum().item()}")
-            return [float(new_tokens.sum().item())]
+            # # Create a simple signature from the new token
+            # print(f"Generation successful: generated token sum = {new_tokens.sum().item()}")
+            # return [float(new_tokens.sum().item())]
             
         except Exception as e:
             # If generation fails, log the error and return empty signature
